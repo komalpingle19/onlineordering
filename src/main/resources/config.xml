@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:int="http://www.springframework.org/schema/integration"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/integration
+           http://www.springframework.org/schema/integration/spring-integration.xsd">
+
+    <import resource="beans.xml"></import>
+
+    <int:channel id="orderInputChannel">
+        <int:queue capacity="20"/>
+    </int:channel>
+
+    <int:channel id="drinksChannel">
+        <int:queue capacity="20"/>
+    </int:channel>
+
+    <int:splitter input-channel="orderInputChannel" output-channel="drinksChannel" ref="orderSplitter" method="split"/>
+    <int:router input-channel="drinksChannel" ref="drinkRouter" method="resolveOrderItemChannel"/>
+
+    <int:channel id="coldDrinksChannel"><int:queue capacity="10"/></int:channel>
+    <int:channel id="hotDrinksChannel"><int:queue capacity="10"/></int:channel>
+
+    <int:channel id="preparedDrinksChannel"><int:queue capacity="10"/></int:channel>
+
+    <int:poller default="true" fixed-delay="1000" id="poller"></int:poller>
+
+    <int:service-activator input-channel="hotDrinksChannel" output-channel="preparedDrinksChannel" ref="prepareDrinks" method="prepareDrinks"></int:service-activator>
+
+    <int:service-activator input-channel="coldDrinksChannel" output-channel="preparedDrinksChannel" ref="prepareDrinks" method="prepareDrinks"></int:service-activator>
+
+    <int:aggregator id="ordersAggregator" input-channel="preparedDrinksChannel"
+                    output-channel="aggregateOrderItemsChannel" correlation-strategy-expression="payload.orderNumber"/>
+
+    <int:channel id="aggregateOrderItemsChannel">
+        <int:queue capacity="10"/>
+    </int:channel>
+
+    <int:channel id="aggregatedOrderChannel">
+        <int:queue capacity="10"/>
+    </int:channel>
+
+    <int:service-activator input-channel="aggregateOrderItemsChannel" output-channel="aggregatedOrderChannel" ref="processedItems" method="processItems"/>
+
+</beans>
